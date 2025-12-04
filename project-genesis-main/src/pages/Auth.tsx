@@ -78,7 +78,7 @@ export default function Auth() {
     }
   };
 
-  // --- Forgot password handler (improved) ---
+  // --- Forgot password handler (robust, checks provider first) ---
   const handleForgotPassword = async () => {
     const emailToCheck = resetEmail.trim();
     if (!emailToCheck || !emailToCheck.includes("@")) {
@@ -87,25 +87,38 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      // check if email is registered
+      // check which sign-in methods exist for this email
       const methods = await fetchSignInMethodsForEmail(auth, emailToCheck);
       if (!methods || methods.length === 0) {
-        // no account exists with that email
         showMessage("No account found with this email.", true);
         setLoading(false);
         return;
       }
 
-      // send reset email
-      await sendPasswordResetEmail(auth, emailToCheck);
-      showMessage("Password reset email sent. Check your inbox (or spam).");
+      // If account uses Google (or other OAuth) and no password provider, inform user
+      if (methods.includes("google.com") && !methods.includes("password")) {
+        showMessage("This account uses Google Sign-In. Please sign in with Google (no password set).", true);
+        setLoading(false);
+        return;
+      }
+
+      // If password provider exists, send reset email
+      if (methods.includes("password")) {
+        await sendPasswordResetEmail(auth, emailToCheck);
+        showMessage("Password reset email sent. Check your inbox (or spam).");
+      } else {
+        showMessage("Password reset not available for this account. Try signing in with your provider.", true);
+      }
     } catch (err: any) {
       console.error("Forgot password error:", err);
-      // handle some common firebase error codes
       if (err?.code === "auth/invalid-email") {
         showMessage("Invalid email address.", true);
       } else if (err?.code === "auth/too-many-requests") {
         showMessage("Too many requests. Try again later.", true);
+      } else if (err?.code === "auth/user-not-found") {
+        showMessage("No account found with this email.", true);
+      } else if (err?.code === "auth/app-not-authorized" || err?.code === "auth/unauthorized-domain") {
+        showMessage("App not authorized for this domain. Check Firebase settings.", true);
       } else {
         showMessage("Could not send reset email. Try again later.", true);
       }
