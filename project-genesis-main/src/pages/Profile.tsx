@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase"; // <-- agar tumhara firebase init kahin aur hai to path yahan change karna
 
 type ProfileState = {
   name: string;
@@ -31,7 +33,26 @@ const Profile = () => {
     horizon: "medium",
   });
 
-  // load saved profile from localStorage on mount
+  // --- AUTO LOGOUT: agar user /profile kholta hai to turant sign out karke home bhej do
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.warn("Sign out on profile mount failed:", err);
+      } finally {
+        if (mounted) {
+          navigate("/", { replace: true });
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
+
+  // load saved profile from localStorage on mount (kept for completeness; user will be redirected before seeing this)
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -39,11 +60,9 @@ const Profile = () => {
         const parsed = JSON.parse(raw) as Partial<ProfileState>;
         setForm((f) => ({ ...f, ...parsed }));
       } catch (err) {
-        // ignore parse errors
         console.warn("Could not parse saved profile", err);
       }
     } else {
-      // defaults (optional)
       setForm({
         name: "John Doe",
         email: "john@example.com",
@@ -62,7 +81,6 @@ const Profile = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // simple validation example
     if (!form.name.trim() || !form.email.includes("@")) {
       toast({
         title: "Invalid input",
@@ -73,9 +91,7 @@ const Profile = () => {
     }
 
     try {
-      // Save to localStorage (you can replace this with Firestore call)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
-
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
