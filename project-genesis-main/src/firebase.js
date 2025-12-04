@@ -1,8 +1,7 @@
-// Import Firebase functions
+// src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Your Firebase Config
 const firebaseConfig = {
     apiKey: "AIzaSyB7hW3ZotG6Hgz-j9ebT6E9Xf6s2aP4bLM",
     authDomain: "stock-advisor-efb38.firebaseapp.com",
@@ -13,8 +12,11 @@ const firebaseConfig = {
     measurementId: "G-0RKSW6NCJD"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+console.log("FIREBASE CONFIG (runtime):", {
+    projectId: firebaseConfig.projectId,
+    authDomain: firebaseConfig.authDomain,
+    apiKey: firebaseConfig.apiKey ? "present" : "missing",
+});
 
-// Initialize AUTH
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
