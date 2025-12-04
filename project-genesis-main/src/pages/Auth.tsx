@@ -1,4 +1,3 @@
-// src/pages/Auth.tsx
 import React, { useEffect, useState } from "react";
 import {
   createUserWithEmailAndPassword,
@@ -9,7 +8,7 @@ import {
   sendPasswordResetEmail,
   User,
 } from "firebase/auth";
-import { auth } from "../firebase"; // path as before
+import { auth } from "../firebase";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -19,9 +18,14 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<boolean>(false);
-
-  // <-- new state for reset email (separate from login email)
   const [resetEmail, setResetEmail] = useState("");
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) window.location.replace("/dashboard");
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -53,8 +57,6 @@ export default function Auth() {
         window.location.assign("/dashboard");
       }
     } catch (err: any) {
-      // Firebase returns messages and codes; show user-friendly messages
-      console.error("Auth error:", err);
       const msg =
         err?.code === "auth/wrong-password"
           ? "Wrong password."
@@ -73,12 +75,10 @@ export default function Auth() {
       setUser(null);
       window.location.assign("/");
     } catch (err) {
-      console.error("Sign out error:", err);
       showMessage("Sign out failed.", true);
     }
   };
 
-  // --- Forgot password handler (improved) ---
   const handleForgotPassword = async () => {
     const emailToCheck = resetEmail.trim();
     if (!emailToCheck || !emailToCheck.includes("@")) {
@@ -87,21 +87,15 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      // check if email is registered
       const methods = await fetchSignInMethodsForEmail(auth, emailToCheck);
       if (!methods || methods.length === 0) {
-        // no account exists with that email
         showMessage("No account found with this email.", true);
         setLoading(false);
         return;
       }
-
-      // send reset email
       await sendPasswordResetEmail(auth, emailToCheck);
-      showMessage("Password reset email sent. Check your inbox (or spam).");
+      showMessage("Password reset email sent. Check your inbox.");
     } catch (err: any) {
-      console.error("Forgot password error:", err);
-      // handle some common firebase error codes
       if (err?.code === "auth/invalid-email") {
         showMessage("Invalid email address.", true);
       } else if (err?.code === "auth/too-many-requests") {
@@ -129,22 +123,26 @@ export default function Auth() {
 
   return (
     <div style={{ maxWidth: 680, margin: "24px auto", padding: 20 }}>
-      <div style={{
-        background: "#fff",
-        borderRadius: 8,
-        padding: 18,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
-      }}>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 8,
+          padding: 18,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+        }}
+      >
         <h2 style={{ marginBottom: 12 }}>{isSigningUp ? "Create account" : "Login"}</h2>
 
         {statusMessage && (
-          <div style={{
-            marginBottom: 12,
-            padding: 10,
-            borderRadius: 6,
-            background: statusError ? "#ffd6d6" : "#e6ffed",
-            color: statusError ? "#900" : "#060"
-          }}>
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 6,
+              background: statusError ? "#ffd6d6" : "#e6ffed",
+              color: statusError ? "#900" : "#060",
+            }}
+          >
             {statusMessage}
           </div>
         )}
@@ -156,15 +154,16 @@ export default function Auth() {
             placeholder="Email"
             type="email"
             required
-            style={{ display: "block", width: "100%", padding: 12 }}
+            style={{ width: "100%", padding: 12 }}
           />
+
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password (min 6 chars)"
             type="password"
             required
-            style={{ display: "block", width: "100%", padding: 12 }}
+            style={{ width: "100%", padding: 12 }}
           />
 
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -177,26 +176,30 @@ export default function Auth() {
                 color: "#fff",
                 border: "none",
                 borderRadius: 6,
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
-              {loading ? "Please wait..." : (isSigningUp ? "Create account" : "Login")}
+              {loading ? "Please wait..." : isSigningUp ? "Create account" : "Login"}
             </button>
 
             <button
               type="button"
               onClick={() => setIsSigningUp(!isSigningUp)}
-              style={{ padding: "8px 12px", background: "transparent", border: "none", color: "#0b5fff", cursor: "pointer" }}
+              style={{
+                padding: "8px 12px",
+                background: "transparent",
+                border: "none",
+                color: "#0b5fff",
+                cursor: "pointer",
+              }}
             >
               {isSigningUp ? "Have an account? Login" : "No account? Sign up"}
             </button>
           </div>
         </form>
 
-        {/* Separator */}
         <div style={{ height: 1, background: "#eee", margin: "18px 0" }} />
 
-        {/* Forgot password area - separate input for clarity */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             value={resetEmail}
@@ -212,7 +215,7 @@ export default function Auth() {
               background: "#f0ad4e",
               border: "none",
               borderRadius: 6,
-              cursor: "pointer"
+              cursor: "pointer",
             }}
             disabled={loading}
           >
@@ -221,7 +224,7 @@ export default function Auth() {
         </div>
 
         <p style={{ marginTop: 12, color: "#666", fontSize: 13 }}>
-          Note: If you don't see reset email, check your Spam/Junk folder.
+          Note: Check your spam/junk folder for reset email.
         </p>
       </div>
     </div>
