@@ -1,6 +1,6 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB7hW3ZotG6Hgz-j9ebT6E9Xf6s2aP4bLM",
@@ -20,3 +20,13 @@ console.log("FIREBASE CONFIG (runtime):", {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// Set session persistence: user stays logged in until browser is closed.
+// This is recommended for stock apps (good balance of UX + security).
+setPersistence(auth, browserSessionPersistence)
+    .then(() => {
+        console.log("Auth persistence set: session (logout when browser closes).");
+    })
+    .catch((err) => {
+        console.error("Error setting auth persistence:", err);
+    });
