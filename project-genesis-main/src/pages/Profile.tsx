@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase"; // <-- agar tumhara firebase init kahin aur hai to path yahan change karna
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "../firebase"; // path sahi hai to chhod do
 
 type ProfileState = {
   name: string;
@@ -25,6 +25,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [form, setForm] = useState<ProfileState>({
     name: "",
     email: "",
@@ -33,26 +35,26 @@ const Profile = () => {
     horizon: "medium",
   });
 
-  // --- AUTO LOGOUT: agar user /profile kholta hai to turant sign out karke home bhej do
+  // Check auth state on mount — do NOT sign the user out here
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        await signOut(auth);
-      } catch (err) {
-        console.warn("Sign out on profile mount failed:", err);
-      } finally {
-        if (mounted) {
-          navigate("/", { replace: true });
-        }
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthChecked(true);
+      // If user exists, prefill email if empty
+      if (u && !form.email) {
+        setForm((f) => ({ ...f, email: u.email || f.email }));
       }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [navigate]);
+      // If no user (not logged in), redirect to home/login
+      if (!u) {
+        navigate("/", { replace: true });
+      }
+    });
 
-  // load saved profile from localStorage on mount (kept for completeness; user will be redirected before seeing this)
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // load saved profile from localStorage (optional) — merge with current form
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -63,15 +65,17 @@ const Profile = () => {
         console.warn("Could not parse saved profile", err);
       }
     } else {
+      // default values if nothing saved yet
       setForm({
-        name: "John Doe",
-        email: "john@example.com",
-        budget: "50000",
+        name: "",
+        email: user?.email || "",
+        budget: "",
         risk: "moderate",
         horizon: "medium",
       });
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleChange = (key: keyof ProfileState, value: string) => {
     setForm((s) => ({ ...s, [key]: value }));
@@ -106,6 +110,15 @@ const Profile = () => {
       setIsLoading(false);
     }
   };
+
+  // While auth is being checked, show nothing or a small loader (optional)
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div>Checking authentication...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
