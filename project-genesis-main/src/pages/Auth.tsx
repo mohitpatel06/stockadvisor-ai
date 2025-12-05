@@ -5,8 +5,6 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  fetchSignInMethodsForEmail,
-  sendPasswordResetEmail,
   User,
 } from "firebase/auth";
 import { auth } from "../firebase";
@@ -19,7 +17,6 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<boolean>(false);
-  const [resetEmail, setResetEmail] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -41,12 +38,13 @@ export default function Auth() {
     setLoading(true);
 
     try {
+      const cleanEmail = email?.trim().toLowerCase();
       if (isSigningUp) {
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         setUser(cred.user);
         window.location.assign("/dashboard");
       } else {
-        const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
         setUser(cred.user);
         window.location.assign("/dashboard");
       }
@@ -76,70 +74,28 @@ export default function Auth() {
     }
   };
 
-  // ----------------------- FIXED FORGOT PASSWORD -----------------------
-  const handleForgotPassword = async () => {
-    // auto fallback to login email if resetEmail is empty
-    const rawEmail = resetEmail?.trim() || email?.trim();
-    const cleaned = rawEmail.toLowerCase();
-
-    if (!cleaned || !cleaned.includes("@")) {
-      showMessage("Please enter a valid email to reset password.", true);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Check providers
-      const methods = await fetchSignInMethodsForEmail(auth, cleaned);
-
-      if (methods.length === 0) {
-        showMessage("No account found with this email.", true);
-        return;
-      }
-
-      if (methods.includes("google.com") && !methods.includes("password")) {
-        showMessage("This account uses Google Sign-In only.", true);
-        return;
-      }
-
-      // Send reset mail
-      await sendPasswordResetEmail(auth, cleaned);
-      showMessage("Password reset email sent. Check inbox/spam.");
-    } catch (err: any) {
-      console.error("Forgot password error:", err);
-      showMessage(err?.message || "Could not send reset email.", true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // ----------------------- UI -----------------------
   if (user) {
     return (
       <div style={{ padding: 20 }}>
         <h2>Welcome, {user.email}</h2>
         <p>User ID: {user.uid}</p>
-        <button onClick={() => window.location.assign("/dashboard")}>
-          Go to Dashboard
-        </button>
-        <button onClick={handleSignOut} style={{ marginLeft: 12 }}>
-          Sign Out
-        </button>
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => window.location.assign("/dashboard")} style={primaryBtn}>
+            Go to Dashboard
+          </button>
+          <button onClick={handleSignOut} style={{ ...primaryBtn, marginLeft: 12, background: "#777" }}>
+            Sign Out
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: 680, margin: "24px auto", padding: 20 }}>
-      <div style={{
-        background: "#fff",
-        borderRadius: 8,
-        padding: 18,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
-      }}>
-        <h2 style={{ marginBottom: 12 }}>
-          {isSigningUp ? "Create account" : "Login"}
-        </h2>
+      <div style={card}>
+        <h2 style={{ marginBottom: 12 }}>{isSigningUp ? "Create account" : "Login"}</h2>
 
         {statusMessage && (
           <div style={{
@@ -177,14 +133,7 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              style={{
-                padding: "10px 16px",
-                background: "#0b5fff",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer"
-              }}
+              style={primaryBtn}
             >
               {loading ? "Please wait..." : (isSigningUp ? "Create account" : "Login")}
             </button>
@@ -192,49 +141,35 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => setIsSigningUp(!isSigningUp)}
-              style={{ padding: "8px 12px", background: "transparent", border: "none", color: "#0b5fff" }}
+              style={{ padding: "8px 12px", background: "transparent", border: "none", color: "#0b5fff", cursor: "pointer" }}
             >
               {isSigningUp ? "Have an account? Login" : "No account? Sign up"}
             </button>
           </div>
         </form>
 
-        {/* SEPARATOR */}
-        <div style={{ height: 1, background: "#eee", margin: "18px 0" }} />
-
-        {/* FORGOT PASSWORD */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            value={resetEmail}
-            onChange={(e) => setResetEmail(e.target.value)}
-            placeholder="Email for reset"
-            style={{ padding: 10, flex: 1 }}
-            type="email"
-            onFocus={() => {
-              // auto-fill email into reset field if empty
-              if (!resetEmail && email) setResetEmail(email);
-            }}
-          />
-
-          <button
-            onClick={handleForgotPassword}
-            style={{
-              padding: "10px 14px",
-              background: "#f0ad4e",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer"
-            }}
-            disabled={loading}
-          >
-            Forgot Password
-          </button>
-        </div>
-
+        {/* small helper text */}
         <p style={{ marginTop: 12, color: "#666", fontSize: 13 }}>
-          If you don't see the reset email, check Spam/Junk folder.
+          Need help? Contact support@example.com
         </p>
       </div>
     </div>
   );
 }
+
+// small style helpers
+const card: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: 8,
+  padding: 18,
+  boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
+};
+
+const primaryBtn: React.CSSProperties = {
+  padding: "10px 16px",
+  background: "#0b5fff",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer"
+};
