@@ -9,7 +9,7 @@ import {
   sendPasswordResetEmail,
   User,
 } from "firebase/auth";
-import { auth } from "../firebase"; // path as before
+import { auth } from "../firebase";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -19,14 +19,10 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<boolean>(false);
-
-  // <-- new state for reset email (separate from login email)
   const [resetEmail, setResetEmail] = useState("");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
 
@@ -39,21 +35,22 @@ export default function Auth() {
     }, 6000);
   };
 
+  // ----------------------- LOGIN / SIGNUP -----------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
       if (isSigningUp) {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         setUser(cred.user);
         window.location.assign("/dashboard");
       } else {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
         setUser(cred.user);
         window.location.assign("/dashboard");
       }
     } catch (err: any) {
-      // Firebase returns messages and codes; show user-friendly messages
       console.error("Auth error:", err);
       const msg =
         err?.code === "auth/wrong-password"
@@ -67,6 +64,7 @@ export default function Auth() {
     }
   };
 
+  // ----------------------- SIGN OUT -----------------------
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -78,61 +76,52 @@ export default function Auth() {
     }
   };
 
-  // --- Forgot password handler (robust, checks provider first) ---
+  // ----------------------- FIXED FORGOT PASSWORD -----------------------
   const handleForgotPassword = async () => {
-    const emailToCheck = resetEmail.trim();
-    if (!emailToCheck || !emailToCheck.includes("@")) {
-      showMessage("Please enter a valid email address for reset.", true);
+    // auto fallback to login email if resetEmail is empty
+    const rawEmail = resetEmail?.trim() || email?.trim();
+    const cleaned = rawEmail.toLowerCase();
+
+    if (!cleaned || !cleaned.includes("@")) {
+      showMessage("Please enter a valid email to reset password.", true);
       return;
     }
+
     setLoading(true);
     try {
-      // check which sign-in methods exist for this email
-      const methods = await fetchSignInMethodsForEmail(auth, emailToCheck);
-      if (!methods || methods.length === 0) {
+      // Check providers
+      const methods = await fetchSignInMethodsForEmail(auth, cleaned);
+
+      if (methods.length === 0) {
         showMessage("No account found with this email.", true);
-        setLoading(false);
         return;
       }
 
-      // If account uses Google (or other OAuth) and no password provider, inform user
       if (methods.includes("google.com") && !methods.includes("password")) {
-        showMessage("This account uses Google Sign-In. Please sign in with Google (no password set).", true);
-        setLoading(false);
+        showMessage("This account uses Google Sign-In only.", true);
         return;
       }
 
-      // If password provider exists, send reset email
-      if (methods.includes("password")) {
-        await sendPasswordResetEmail(auth, emailToCheck);
-        showMessage("Password reset email sent. Check your inbox (or spam).");
-      } else {
-        showMessage("Password reset not available for this account. Try signing in with your provider.", true);
-      }
+      // Send reset mail
+      await sendPasswordResetEmail(auth, cleaned);
+      showMessage("Password reset email sent. Check inbox/spam.");
     } catch (err: any) {
       console.error("Forgot password error:", err);
-      if (err?.code === "auth/invalid-email") {
-        showMessage("Invalid email address.", true);
-      } else if (err?.code === "auth/too-many-requests") {
-        showMessage("Too many requests. Try again later.", true);
-      } else if (err?.code === "auth/user-not-found") {
-        showMessage("No account found with this email.", true);
-      } else if (err?.code === "auth/app-not-authorized" || err?.code === "auth/unauthorized-domain") {
-        showMessage("App not authorized for this domain. Check Firebase settings.", true);
-      } else {
-        showMessage("Could not send reset email. Try again later.", true);
-      }
+      showMessage(err?.message || "Could not send reset email.", true);
     } finally {
       setLoading(false);
     }
   };
 
+  // ----------------------- UI -----------------------
   if (user) {
     return (
       <div style={{ padding: 20 }}>
         <h2>Welcome, {user.email}</h2>
         <p>User ID: {user.uid}</p>
-        <button onClick={() => window.location.assign("/dashboard")}>Go to Dashboard</button>
+        <button onClick={() => window.location.assign("/dashboard")}>
+          Go to Dashboard
+        </button>
         <button onClick={handleSignOut} style={{ marginLeft: 12 }}>
           Sign Out
         </button>
@@ -148,7 +137,9 @@ export default function Auth() {
         padding: 18,
         boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
       }}>
-        <h2 style={{ marginBottom: 12 }}>{isSigningUp ? "Create account" : "Login"}</h2>
+        <h2 style={{ marginBottom: 12 }}>
+          {isSigningUp ? "Create account" : "Login"}
+        </h2>
 
         {statusMessage && (
           <div style={{
@@ -162,6 +153,7 @@ export default function Auth() {
           </div>
         )}
 
+        {/* LOGIN FORM */}
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
           <input
             value={email}
@@ -169,15 +161,16 @@ export default function Auth() {
             placeholder="Email"
             type="email"
             required
-            style={{ display: "block", width: "100%", padding: 12 }}
+            style={{ width: "100%", padding: 12 }}
           />
+
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password (min 6 chars)"
             type="password"
             required
-            style={{ display: "block", width: "100%", padding: 12 }}
+            style={{ width: "100%", padding: 12 }}
           />
 
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -199,17 +192,17 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => setIsSigningUp(!isSigningUp)}
-              style={{ padding: "8px 12px", background: "transparent", border: "none", color: "#0b5fff", cursor: "pointer" }}
+              style={{ padding: "8px 12px", background: "transparent", border: "none", color: "#0b5fff" }}
             >
               {isSigningUp ? "Have an account? Login" : "No account? Sign up"}
             </button>
           </div>
         </form>
 
-        {/* Separator */}
+        {/* SEPARATOR */}
         <div style={{ height: 1, background: "#eee", margin: "18px 0" }} />
 
-        {/* Forgot password area - separate input for clarity */}
+        {/* FORGOT PASSWORD */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             value={resetEmail}
@@ -217,7 +210,12 @@ export default function Auth() {
             placeholder="Email for reset"
             style={{ padding: 10, flex: 1 }}
             type="email"
+            onFocus={() => {
+              // auto-fill email into reset field if empty
+              if (!resetEmail && email) setResetEmail(email);
+            }}
           />
+
           <button
             onClick={handleForgotPassword}
             style={{
@@ -229,12 +227,12 @@ export default function Auth() {
             }}
             disabled={loading}
           >
-            Forgot password
+            Forgot Password
           </button>
         </div>
 
         <p style={{ marginTop: 12, color: "#666", fontSize: 13 }}>
-          Note: If you don't see reset email, check your Spam/Junk folder.
+          If you don't see the reset email, check Spam/Junk folder.
         </p>
       </div>
     </div>
