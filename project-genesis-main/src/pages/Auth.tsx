@@ -32,13 +32,13 @@ export default function Auth() {
     }, 6000);
   };
 
-  // ----------------------- LOGIN / SIGNUP -----------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const cleanEmail = email?.trim().toLowerCase();
+      const cleanEmail = email.trim().toLowerCase();
+
       if (isSigningUp) {
         const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         setUser(cred.user);
@@ -62,7 +62,6 @@ export default function Auth() {
     }
   };
 
-  // ----------------------- SIGN OUT -----------------------
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -74,17 +73,21 @@ export default function Auth() {
     }
   };
 
-  // ----------------------- UI -----------------------
   if (user) {
     return (
       <div style={{ padding: 20 }}>
         <h2>Welcome, {user.email}</h2>
         <p>User ID: {user.uid}</p>
+
         <div style={{ marginTop: 12 }}>
           <button onClick={() => window.location.assign("/dashboard")} style={primaryBtn}>
             Go to Dashboard
           </button>
-          <button onClick={handleSignOut} style={{ ...primaryBtn, marginLeft: 12, background: "#777" }}>
+
+          <button
+            onClick={handleSignOut}
+            style={{ ...primaryBtn, marginLeft: 12, background: "#777" }}
+          >
             Sign Out
           </button>
         </div>
@@ -95,21 +98,24 @@ export default function Auth() {
   return (
     <div style={{ maxWidth: 680, margin: "24px auto", padding: 20 }}>
       <div style={card}>
-        <h2 style={{ marginBottom: 12 }}>{isSigningUp ? "Create account" : "Login"}</h2>
+        <h2 style={{ marginBottom: 12 }}>
+          {isSigningUp ? "Create Account" : "Login"}
+        </h2>
 
         {statusMessage && (
-          <div style={{
-            marginBottom: 12,
-            padding: 10,
-            borderRadius: 6,
-            background: statusError ? "#ffd6d6" : "#e6ffed",
-            color: statusError ? "#900" : "#060"
-          }}>
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 6,
+              background: statusError ? "#ffd6d6" : "#e6ffed",
+              color: statusError ? "#900" : "#060",
+            }}
+          >
             {statusMessage}
           </div>
         )}
 
-        {/* LOGIN FORM */}
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
           <input
             value={email}
@@ -130,39 +136,35 @@ export default function Auth() {
           />
 
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button
-              type="submit"
-              disabled={loading}
-              style={primaryBtn}
-            >
-              {loading ? "Please wait..." : (isSigningUp ? "Create account" : "Login")}
+            <button type="submit" disabled={loading} style={primaryBtn}>
+              {loading ? "Please wait..." : isSigningUp ? "Create Account" : "Login"}
             </button>
 
             <button
               type="button"
               onClick={() => setIsSigningUp(!isSigningUp)}
-              style={{ padding: "8px 12px", background: "transparent", border: "none", color: "#0b5fff", cursor: "pointer" }}
+              style={{
+                padding: "8px 12px",
+                background: "transparent",
+                border: "none",
+                color: "#0b5fff",
+                cursor: "pointer",
+              }}
             >
               {isSigningUp ? "Have an account? Login" : "No account? Sign up"}
             </button>
           </div>
         </form>
-
-        {/* small helper text */}
-        <p style={{ marginTop: 12, color: "#666", fontSize: 13 }}>
-          Need help? Contact support@example.com
-        </p>
       </div>
     </div>
   );
 }
 
-// small style helpers
 const card: React.CSSProperties = {
   background: "#fff",
   borderRadius: 8,
   padding: 18,
-  boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
+  boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
 };
 
 const primaryBtn: React.CSSProperties = {
@@ -171,5 +173,5 @@ const primaryBtn: React.CSSProperties = {
   color: "#fff",
   border: "none",
   borderRadius: 6,
-  cursor: "pointer"
+  cursor: "pointer",
 };
